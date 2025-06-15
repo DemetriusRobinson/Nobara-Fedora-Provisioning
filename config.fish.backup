@@ -1,0 +1,18 @@
+if status is-interactive
+    # Commands to run in interactive sessions can go here
+    fastfetch
+end
+
+# ROCm Environment Variables
+set -x HSA_OVERRIDE_GFX_VERSION 11.0.0
+set -x HIP_VISIBLE_DEVICES 0
+set -x PYTORCH_ROCM_ARCH gfx1100
+set -x OLLAMA_HOST 127.0.0.1:11435
+
+# Rust Environment
+source $HOME/.cargo/env.fish
+
+# Piper and other user-installed tools
+if not contains $HOME/.local/bin $PATH
+    set -gx PATH $HOME/.local/bin $PATH
+end
