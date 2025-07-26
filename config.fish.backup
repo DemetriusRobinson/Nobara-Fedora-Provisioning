@@ -4,15 +4,51 @@ if status is-interactive
 end
 
 # ROCm Environment Variables
+# Enable ROCm GPU support for Ollama (7900XTX)
 set -x HSA_OVERRIDE_GFX_VERSION 11.0.0
+set -x HCC_AMDGPU_TARGET gfx1100
 set -x HIP_VISIBLE_DEVICES 0
 set -x PYTORCH_ROCM_ARCH gfx1100
 set -x OLLAMA_HOST 127.0.0.1:11435
 
 # Rust Environment
-source $HOME/.cargo/env.fish
+#source $HOME/.cargo/env.fish
 
 # Piper and other user-installed tools
 if not contains $HOME/.local/bin $PATH
     set -gx PATH $HOME/.local/bin $PATH
+end
+set -gx VAULT_ADDR http://127.0.0.1:8200
+
+# Apache Maven
+set -x MAVEN_HOME /opt/ApacheSoftware/apache-maven-3.9.10
+set -x PATH "$MAVEN_HOME/bin" $PATH
+
+# Apache Kafka
+set -x KAFKA_HOME /opt/ApacheSoftware/kafka_2.13-3.9.1
+set -x PATH $KAFKA_HOME/bin $PATH
+
+# Oracle JDK
+set -x JAVA_HOME "/opt/java/jdk-24.0.1"
+set -x PATH "$JAVA_HOME/bin" $PATH
+
+# Twitch Downloader
+set -x TWITCHDL /opt/Twitch-Downloader/twitchdl
+set -x PATH /opt/Twitch-Downloader $PATH
+source ~/.cargo/env.fish
+
+# Open WebUI installation directory
+set -Ux OPENWEBUI_DIR $HOME/Applications/open-webui
+
+# Where Open WebUI will store its data
+set -Ux DATA_DIR $OPENWEBUI_DIR/data
+
+# (Optional) If Ollama is listening somewhere else:
+# set -Ux OLLAMA_BASE_URL http://localhost:11434
+
+# Activate the venv on new shells in this project folder
+function enter_openwebui --on-variable PWD
+    if test (pwd) = $OPENWEBUI_DIR
+        source $OPENWEBUI_DIR/venv/bin/activate.fish
+    end
 end
