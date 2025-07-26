@@ -107,6 +107,9 @@ VAULT_ADDR_LINE="set -gx VAULT_ADDR http://127.0.0.1:8200"
 grep -qxF "$VAULT_ADDR_LINE" "$FISH_CONFIG" || echo "$VAULT_ADDR_LINE" >> "$FISH_CONFIG"
 export VAULT_ADDR="http://127.0.0.1:8200"
 
+# Get default gateway
+GATEWAY=$(ip route | awk '/default/ {print $3}')
+
 echo "🛠️ Creating systemd service..."
 sudo tee /etc/systemd/system/vault.service > /dev/null <<EOF
 [Unit]
@@ -198,10 +201,10 @@ chmod 600 "$CREDENTIALS_FILE"
 
 # Mount SMB shares
 echo "🔗 Mounting NAS shares..."
-sudo mount -t cifs //192.168.50.1/Development /mnt/AsusDevelopment \
+sudo mount -t cifs //$GATEWAY/Development /mnt/AsusDevelopment \
   -o credentials="$CREDENTIALS_FILE",uid=$(id -u),gid=$(id -g),dir_mode=0775,file_mode=0664,noperm,vers=2.0
 
-sudo mount -t cifs //192.168.50.1/Entertainment /mnt/AsusEntertainment \
+sudo mount -t cifs //$GATEWAY/Entertainment /mnt/AsusEntertainment \
   -o credentials="$CREDENTIALS_FILE",uid=$(id -u),gid=$(id -g),dir_mode=0775,file_mode=0664,noperm,vers=2.0
 
 

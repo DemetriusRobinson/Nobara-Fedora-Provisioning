@@ -65,3 +65,44 @@ EOF
 chmod +x "$DESKTOP_FILE"
 
 echo "✅ Stability Matrix installed and .desktop entry created!"
+echo ""
+echo "🚀 Please run StabilityMatrix and install your desired AI tools and trainers."
+read -p "🕐 Press [Enter] once you've installed at least one tool from within StabilityMatrix..."
+
+PACKAGES_DIR="$HOME/Applications/AI_Software/StabilityMatrix/Data/Packages"
+
+echo "🔍 Waiting for tool folders to appear in: $PACKAGES_DIR"
+while true; do
+  found_folders=($(find "$PACKAGES_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null))
+  if [ ${#found_folders[@]} -gt 0 ]; then
+    break
+  fi
+  sleep 3
+done
+
+echo "📦 Found the following AI tools:"
+for folder in "${found_folders[@]}"; do
+  echo " - $(basename "$folder")"
+done
+
+read -p "🛠️ Do you want to patch the venvs for AMD Torch compatibility? (y/n): " choice
+if [[ "$choice" == "y" || "$choice" == "Y" ]]; then
+  for folder in "${found_folders[@]}"; do
+    venv_path="$folder/venv"
+    if [ -d "$venv_path" ]; then
+      echo "🐟 Activating venv in $(basename "$folder")"
+      fish -c "
+        source $venv_path/bin/activate.fish;
+        pip uninstall torch torchvision torchaudio --yes;
+        pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.3;
+        deactivate
+      "
+    else
+      echo "⚠️ No venv found in: $folder"
+    fi
+  done
+  echo "✅ All compatible Torch installs complete!"
+else
+  echo "⏭️ Skipping Torch patching step."
+fi
+
