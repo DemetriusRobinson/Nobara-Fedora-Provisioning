@@ -61,6 +61,7 @@ docker run --name searxng -d \
   -p 3001:8080 \
   -v "$(pwd)/config/:/etc/searxng/" \
   -v "$(pwd)/data/:/var/cache/searxng/" \
+  --restart always \
   docker.io/searxng/searxng:latest
 
 echo "[6/8] Installing Ollama ROCm container..."
@@ -73,6 +74,7 @@ docker run -d \
   -v ollama:/root/.ollama \
   -p 11434:11434 \
   --name ollama \
+  --restart always \
   ollama/ollama:rocm
 
 echo "[7/8] Pulling Ollama models..."
