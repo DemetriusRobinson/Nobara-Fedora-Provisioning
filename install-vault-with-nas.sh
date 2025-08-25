@@ -133,10 +133,18 @@ sudo systemctl enable --now vault
 
 echo "⏳ Waiting for Vault to become available..."
 until curl -s http://127.0.0.1:8200/v1/sys/health >/dev/null 2>&1; do
-  sleep 1
+  sleep 5
 done
 
+echo "🔐 Target NAS IP required"
+read -rp "Enter NAS VM IP (e.g. 10.5.1.13): " NAS_IP
+if [[ -z "${NAS_IP:-}" ]]; then
+  echo "NAS IP is required." >&2
+  exit 1
+fi
+
 echo "🔐 Initializing Vault and saving unseal keys and root token..."
+#sleep 5
 sudo chown "$(whoami)":"$(whoami)" /opt/vault/data
 vault operator init > /opt/vault/data/vault.un
 
@@ -153,16 +161,16 @@ vault login "$ROOT_TOKEN"
 # Add unseal automation before creating the secret engine
 create_vault_unseal_service
 
-echo "📂 Enabling new KV secrets engine at path AsusNASCreds..."
-vault secrets enable -path=AsusNASCreds kv
+echo "📂 Enabling new KV secrets engine at path SMBNASCreds..."
+vault secrets enable -path=SMBNASCreds kv
 
 echo "🔐 Prompting for NAS credentials to store..."
 read -p "Enter NAS username: " NAS_USERNAME
 read -s -p "Enter NAS password: " NAS_PASSWORD
 echo
 
-echo "📝 Storing credentials in AsusNASCreds..."
-vault kv put AsusNASCreds/credentials username="$NAS_USERNAME" password="$NAS_PASSWORD"
+echo "📝 Storing credentials in SMBNASCreds"
+vault kv put SMBNASCreds/credentials username="$NAS_USERNAME" password="$NAS_PASSWORD"
 
 
 
@@ -174,9 +182,7 @@ sudo tee /usr/local/bin/vault-mount-nas.sh > /dev/null << 'EOF'
 set -euo pipefail
 
 export VAULT_ADDR="http://127.0.0.1:8200"
-VAULT_PATH="AsusNASCreds/credentials"
-# Get default gateway
-GATEWAY=$(ip route | awk '/default/ {print $3}')
+VAULT_PATH="SMBNASCreds/credentials"
 
 # Wait for Vault to be unsealed and ready
 echo "⏳ Waiting for Vault to become ready..."
@@ -185,8 +191,8 @@ until curl -s $VAULT_ADDR/v1/sys/seal-status | grep -q '"sealed":'; do
 done
 
 # Ensure mount directories exist
-sudo mkdir -p /mnt/AsusDevelopment
-sudo mkdir -p /mnt/AsusEntertainment
+sudo mkdir -p /mnt/smbDevelopment
+sudo mkdir -p /mnt/smbEntertainment
 
 # Fetch credentials from Vault
 echo "🔐 Fetching NAS credentials from Vault..."
@@ -200,11 +206,11 @@ echo "password=$PASSWORD" >> "$CREDENTIALS_FILE"
 chmod 600 "$CREDENTIALS_FILE"
 
 # Mount SMB shares
-echo "🔗 Mounting NAS shares..."
-sudo mount -t cifs //$GATEWAY/Development /mnt/AsusDevelopment \
+echo "🔗 Mounting NAS shares from //$NAS_IP ..."
+sudo mount -t cifs //$NAS_IP/smbDevelopment /mnt/smbDevelopment \
   -o credentials="$CREDENTIALS_FILE",uid=$(id -u),gid=$(id -g),dir_mode=0775,file_mode=0664,noperm,vers=2.0
 
-sudo mount -t cifs //$GATEWAY/Entertainment /mnt/AsusEntertainment \
+sudo mount -t cifs //$NAS_IP/smbEntertainment /mnt/smbEntertainment \
   -o credentials="$CREDENTIALS_FILE",uid=$(id -u),gid=$(id -g),dir_mode=0775,file_mode=0664,noperm,vers=2.0
 
 
@@ -236,4 +242,4 @@ EOF
 sudo systemctl daemon-reexec
 sudo systemctl enable vault-mount-nas.service
 
-echo "✅ Vault setup complete, unsealed, and AsusNASCreds populated!"
+echo "✅ Vault setup complete, unsealed, and SMBNASCreds populated!"

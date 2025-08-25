@@ -1,92 +1,73 @@
 #!/bin/bash
 
-# Exit on any error
 set -e
 
-echo "[1/8] Installing Docker..."
-sudo dnf remove -y docker docker-client docker-client-latest docker-common docker-latest \
-    docker-latest-logrotate docker-logrotate docker-engine docker-compose-plugin || true
+echo "🌐 Setting up Docker Engine repositories"
+sudo dnf -y install dnf-plugins-core
+sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
 
-sudo dnf install -y dnf-plugins-core
-sudo dnf-3 config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
-#sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+echo "🌐 Installing Latest Docker Engine"
+sudo dnf -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-echo "[2/8] Starting Docker and enabling on boot..."
+echo "⚙️ Starting Docker Engine"
 sudo systemctl enable --now docker
 
-echo "[3/8] Adding user to docker group..."
-sudo usermod -aG docker $USER
+echo "📄 Verifying Docker installation..."
+docker --version
+sudo docker run hello-world
 
-echo "[!] Please log out and back in or run 'newgrp docker' to apply group change."
+# 1. Install Native SearXNG (Meta Search Engine)
+echo "🔧 Installing native SearXNG to avoid Docker overhead"
+APP_DIR="$HOME/Applications/searxng"
+PORT=8888
+VENV_DIR="$APP_DIR/venv"
+SRC_DIR="$APP_DIR/src"
 
-echo "[4/8] Installing Open WebUI..."
-mkdir -p ~/Applications
-cd ~/Applications
-rm -rf open-webui || true
-git clone https://github.com/open-webui/open-webui.git
-cd open-webui
+mkdir -p "$APP_DIR"
 
-cat > run.sh << 'EOF'
-#!/bin/bash
+echo "📦 Installing dependencies for SearXNG"
+sudo dnf install -y python3 python3-pip python3-venv python3-devel git openssl \
+  @development-tools python3-lxml python3-babel
 
-image_name="open-webui"
-container_name="open-webui"
+echo "📁 Cloning SearXNG repo"
+git clone https://github.com/searxng/searxng "$SRC_DIR"
 
-docker build -t "$image_name" .
-docker stop "$container_name" &>/dev/null || true
-docker rm "$container_name" &>/dev/null || true
+echo "🐍 Creating virtual environment"
+python3 -m venv $VENV_DIR
+source $VENV_DIR/bin/activate.fish
 
-docker run -d \
-    --network=host \
-    -v "${image_name}:/app/backend/data" \
-    --name "$container_name" \
-    --restart always \
-    "$image_name"
+echo "📥 Installing SearXNG in editable mode"
+cd "$SRC_DIR"
+pip install --upgrade pip setuptools wheel
+make install
 
-docker image prune -f
-EOF
+echo "⚙️ Updating settings.yml"
+set SETTINGS_FILE $SRC_DIR/searx/settings.yml
 
-chmod +x run.sh
-./run.sh
+echo "🔑 Generating secret_key"
+SECRET_KEY=$(openssl rand -hex 32)
+# Only make changes if file exists
+if test -f $SETTINGS_FILE
+    sed -i "s/^secret_key:.*/secret_key: \"$SECRET_KEY\"/" $SETTINGS_FILE
+    sed -i "s/^port:.*/port: $PORT/" $SETTINGS_FILE
+    sed -i "s/^bind_address:.*/bind_address: \"127.0.0.1\"/" $SETTINGS_FILE
+else
+    echo "❌ $SETTINGS_FILE not found!"
+    exit 1
+end
 
-echo "[5/8] Installing SearXNG..."
-mkdir -p ~/Applications/searxng/config
-mkdir -p ~/Applications/searxng/data
-cd ~/Applications/searxng
+echo "✅ SearXNG installed natively!"
+echo "📄 You can run it manually with:"
+echo "cd \"$SRC_DIR\" && source \"$VENV_DIR/bin/activate\" && python searx/webapp.py"
 
-docker stop searxng &>/dev/null || true
-docker rm searxng &>/dev/null || true
+# 2. Install Ollama with AMD ROCm Support
+echo "🤖 Installing Ollama (with AMD GPU ROCm support)"
+# Add your Ollama setup steps here
 
-docker run --name searxng -d \
-  -p 3001:8080 \
-  -v "$(pwd)/config/:/etc/searxng/" \
-  -v "$(pwd)/data/:/var/cache/searxng/" \
-  --restart always \
-  docker.io/searxng/searxng:latest
+# 3. Install Open WebUI
+echo "🧠 Installing Open WebUI frontend"
+# Add your Open WebUI setup steps here
 
-echo "[6/8] Installing Ollama ROCm container..."
-docker stop ollama &>/dev/null || true
-docker rm ollama &>/dev/null || true
-
-docker run -d \
-  --device /dev/kfd \
-  --device /dev/dri \
-  -v ollama:/root/.ollama \
-  -p 11434:11434 \
-  --name ollama \
-  --restart always \
-  ollama/ollama:rocm
-
-echo "[7/8] Pulling Ollama models..."
-docker exec ollama ollama pull codellama:34b
-docker exec ollama ollama pull deepseek-r1:32b
-docker exec ollama ollama pull deepseek-r1:8b
-docker exec ollama ollama pull codellama:13b
-docker exec ollama ollama pull mistral:latest
-
-echo "[8/8] Setup Complete!"
-echo "Open WebUI: http://localhost:3000"
-echo "SearXNG:   http://localhost:3001"
-echo "Ollama API: http://localhost:11434"
-echo ""
-echo "Please log out and back in (or run 'newgrp docker') to finish enabling Docker group access."
+echo "✅ All services are installed!"
+echo "🌍 Open WebUI: http://localhost:3000"
+echo "🔎 SearXNG: http://localhost:$PORT"

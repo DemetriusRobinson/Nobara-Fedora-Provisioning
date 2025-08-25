@@ -25,7 +25,7 @@ sudo dnf install -y \
 echo "🐟 Restoring Fish shell configuration..."
 
 FISH_DIR="$HOME/.config/fish"
-BACKUP_DIR="$HOME/Downloads"
+BACKUP_DIR="."
 
 # Restore main config
 if [[ -f "$BACKUP_DIR/config.fish.backup" ]]; then

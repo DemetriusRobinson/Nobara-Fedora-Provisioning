@@ -3,7 +3,7 @@
 set -euo pipefail
 
 export VAULT_ADDR="http://127.0.0.1:8200"
-VAULT_PATH="AsusNASCreds/credentials"
+VAULT_PATH="SMBNASCreds/credentials"
 
 # Wait for Vault to be unsealed and ready
 echo "⏳ Waiting for Vault to become ready..."
@@ -13,8 +13,8 @@ done
 
 
 # Ensure mount directories exist
-sudo mkdir -p /mnt/AsusDevelopment
-sudo mkdir -p /mnt/AsusEntertainment
+sudo mkdir -p /mnt/smbDevelopment
+sudo mkdir -p /mnt/smbEntertainment
 
 # Fetch credentials from Vault
 echo "🔐 Fetching NAS credentials from Vault..."
@@ -27,12 +27,16 @@ echo "username=$USERNAME" > "$CREDENTIALS_FILE"
 echo "password=$PASSWORD" >> "$CREDENTIALS_FILE"
 chmod 600 "$CREDENTIALS_FILE"
 
+# Get default gateway
+#GATEWAY=$(ip route | awk '/default/ {print $3}')
+GATEWAY=10.45.1.13
+
 # Mount SMB shares
 echo "🔗 Mounting NAS shares..."
-sudo mount -t cifs //192.168.50.1/Development /mnt/AsusDevelopment \
+sudo mount -t cifs //$GATEWAY/smbDevelopment /mnt/smbDevelopment \
   -o credentials=$CREDENTIALS_FILE,uid=$(id -u),gid=$(id -g),vers=2.0
 
-sudo mount -t cifs //192.168.50.1/Entertainment /mnt/AsusEntertainment \
+sudo mount -t cifs //$GATEWAY/smbEntertainment /mnt/smbEntertainment \
   -o credentials=$CREDENTIALS_FILE,uid=$(id -u),gid=$(id -g),vers=2.0
 
 # Cleanup temp credentials
